@@ -358,6 +358,7 @@ dependencies = [
  "regex",
  "sendfd",
  "serde",
+ "serde_json",
  "shadow-rs",
  "signal-hook",
  "strum",

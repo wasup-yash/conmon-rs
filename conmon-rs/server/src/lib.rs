@@ -27,3 +27,5 @@ mod streams;
 mod telemetry;
 mod terminal;
 mod version;
+mod json_logger;
+

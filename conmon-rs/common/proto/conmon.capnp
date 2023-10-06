@@ -58,6 +58,7 @@ interface Conmon {
         enum Type {
             # The CRI logger, requires `path` to be set.
             containerRuntimeInterface @0;
+            jsonInterface @1;
         }
     }
 
