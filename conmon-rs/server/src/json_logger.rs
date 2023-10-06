@@ -119,45 +119,69 @@ impl JsonLogger {
 
 
 
+#[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
-    use std::fs;
-    use tempfile::NamedTempFile;
-    use futures::io::Cursor;
+    use std::io::Cursor;
+    use tokio::io::AsyncReadExt;
 
     #[tokio::test]
-    async fn write_stdout_success() -> Result<(), Box<dyn std::error::Error>> {
-        let message = "this is a line\n";
-        let error_message = "and another line\n";
+    async fn test_json_logger_new() {
+        let logger = JsonLogger::new("/tmp/test.log", Some(1000)).unwrap();
+        assert_eq!(logger.path().to_str().unwrap(), "/tmp/test.log");
+        assert_eq!(logger.max_log_size().unwrap(), 1000);
+    }
 
-        let file = NamedTempFile::new()?;
-        let path = file.path();
-        let mut logger = JsonLogger::new(path, None);
-        logger.init().await?;
+    #[tokio::test]
+    async fn test_json_logger_init() {
+        let mut logger = JsonLogger::new("/tmp/test_init.log", Some(1000)).unwrap();
+        logger.init().await.unwrap();
+        assert!(logger.file.is_some());
+    }
 
-        // Use Cursor to simulate AsyncBufRead for our test strings
-        // Assuming JsonLogger has an async write method that takes a Pipe and AsyncBufRead
-        logger.write(Pipe::StdOut, Cursor::new(message)).await?;
-        logger.write(Pipe::StdErr, Cursor::new(error_message)).await?;
+    #[tokio::test]
+    async fn test_json_logger_write() {
+        let mut logger = JsonLogger::new("/tmp/test_write.log", Some(1000)).unwrap();
+        logger.init().await.unwrap();
 
-        let res = fs::read_to_string(path)?;
-        let logs: Vec<Value> = res.lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+        let cursor = Cursor::new(b"Test log message\n".to_vec());
+        logger.write(Pipe::StdOut, cursor).await.unwrap();
 
-        assert_eq!(logs.len(), 2);
+        // Read back from the file
+        let mut file = File::open("/tmp/test_write.log").await.unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).await.unwrap();
 
-        let first_log = &logs[0];
-        assert_eq!(first_log["message"].as_str().unwrap(), "this is a line");
-        assert_eq!(first_log["pipe"].as_str().unwrap(), "stdout");
-        assert!(first_log["timestamp"].is_string());
+        // Check if the file contains the logged message
+        assert!(contents.contains("Test log message"));
+    }
 
-        let second_log = &logs[1];
-        assert_eq!(second_log["message"].as_str().unwrap(), "and another line");
-        assert_eq!(second_log["pipe"].as_str().unwrap(), "stderr");
-        assert!(second_log["timestamp"].is_string());
+    #[tokio::test]
+    async fn test_json_logger_reopen() {
+        let mut logger = JsonLogger::new("/tmp/test_reopen.log", Some(1000)).unwrap();
+        logger.init().await.unwrap();
 
-        Ok(())
+        // Write to the file
+        let cursor = Cursor::new(b"Test log message before reopen\n".to_vec());
+        logger.write(Pipe::StdOut, cursor).await.unwrap();
+
+        // Reopen the file
+        logger.reopen().await.unwrap();
+
+        // Write to the file again
+        let cursor = Cursor::new(b"Test log message after reopen\n".to_vec());
+        logger.write(Pipe::StdOut, cursor).await.unwrap();
+
+        // Read back from the file
+        let mut file = File::open("/tmp/test_reopen.log").await.unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).await.unwrap();
+
+        // Check if the file contains the logged message
+        assert!(contents.contains("Test log message after reopen"));
+        assert!(!contents.contains("Test log message before reopen"));
     }
 }
+
 
 

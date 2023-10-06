@@ -2,7 +2,7 @@ use crate::{container_io::Pipe, cri_logger::CriLogger, json_logger::JsonLogger};
 use anyhow::Result;
 use capnp::struct_list::Reader;
 use conmon_common::conmon_capnp::conmon::log_driver::{Owned, Type};
-use futures::future::join_all;
+use futures::{FutureExt, future::join_all};
 use std::sync::Arc;
 use tokio::{io::AsyncBufRead, sync::RwLock};
 
@@ -61,8 +61,8 @@ impl ContainerLog {
             self.drivers
                 .iter_mut()
                 .map(|x| match x {
-                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.init(),
-                    LogDriver::Json(ref mut json_logger) => json_logger.init(),
+                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.init().boxed(),
+                    LogDriver::Json(ref mut json_logger) => json_logger.init().boxed(),
                 })
                 .collect::<Vec<_>>(),
         )
