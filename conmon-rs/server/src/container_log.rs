@@ -16,7 +16,7 @@ pub struct ContainerLog {
 #[derive(Debug)]
 enum LogDriver {
     ContainerRuntimeInterface(CriLogger),
-    JsonInterface(JsonLogger),
+    Json(JsonLogger),
 }
 
 impl ContainerLog {
@@ -40,8 +40,8 @@ impl ContainerLog {
                             },
                         )?))
                     }
-                    Type::JsonInterface => {
-                        Ok(LogDriver::JsonInterface(JsonLogger::new(
+                    Type::Json => {
+                        Ok(LogDriver::Json(JsonLogger::new(
                             x.get_path()?,
                             if x.get_max_size() > 0 {
                                 Some(x.get_max_size() as usize)
@@ -62,7 +62,7 @@ impl ContainerLog {
                 .iter_mut()
                 .map(|x| match x {
                     LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.init(),
-                    LogDriver::JsonInterface(ref mut json_logger) => json_logger.init(),
+                    LogDriver::Json(ref mut json_logger) => json_logger.init(),
                 })
                 .collect::<Vec<_>>(),
         )
@@ -78,7 +78,7 @@ impl ContainerLog {
                 .iter_mut()
                 .map(|x| match x {
                     LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.reopen(),
-                    LogDriver::JsonInterface(ref mut json_logger) => json_logger.reopen(),
+                    LogDriver::Json(ref mut json_logger) => json_logger.reopen(),
                 })
                 .collect::<Vec<_>>(),
         )
@@ -100,7 +100,7 @@ where
         ) -> Result<()> {
             match logger {
                 LogDriver::ContainerRuntimeInterface(cri_logger) => cri_logger.write(pipe, bytes).await,
-                LogDriver::JsonInterface(json_logger) => json_logger.write(pipe, bytes).await,
+                LogDriver::Json(json_logger) => json_logger.write(pipe, bytes).await,
             }
         }
 
