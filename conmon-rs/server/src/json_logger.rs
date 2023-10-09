@@ -46,42 +46,46 @@ impl JsonLogger {
     }
 
     pub async fn write<T>(&mut self, pipe: Pipe, bytes: T) -> Result<()>
-    where
-        T: AsyncBufRead + Unpin,
-    {
-        let mut reader = BufReader::new(bytes);
-        let mut line_buf = Vec::new();
+where
+    T: AsyncBufRead + Unpin,
+{
+    let mut reader = BufReader::new(bytes);
+    let mut line_buf = Vec::new();
 
-        while reader.read_until(b'\n', &mut line_buf).await? > 0 {
-            let log_entry = json!({
-                "timestamp": format!("{:?}", std::time::SystemTime::now()),
-                "pipe": match pipe {
-                    Pipe::StdOut => "stdout",
-                    Pipe::StdErr => "stderr",
-                },
-                "message": String::from_utf8_lossy(&line_buf).trim().to_string()
-            });
+    while reader.read_until(b'\n', &mut line_buf).await? > 0 {
+        let log_entry = json!({
+            "timestamp": format!("{:?}", std::time::SystemTime::now()),
+            "pipe": match pipe {
+                Pipe::StdOut => "stdout",
+                Pipe::StdErr => "stderr",
+            },
+            "message": String::from_utf8_lossy(&line_buf).trim().to_string()
+        });
 
-            let log_str = log_entry.to_string();
-            let bytes = log_str.as_bytes();
-            self.bytes_written += bytes.len();
+        let log_str = log_entry.to_string();
+        let bytes = log_str.as_bytes();
+        self.bytes_written += bytes.len();
 
-            if let Some(max_size) = self.max_log_size {
-                if self.bytes_written > max_size {
-                    self.reopen().await?;
-                    self.bytes_written = 0;
-                }
+        if let Some(max_size) = self.max_log_size {
+            if self.bytes_written > max_size {
+                self.reopen().await?;
+                self.bytes_written = 0;
             }
-
-            let file = self.file.as_mut().context(Self::ERR_UNINITIALIZED)?;
-            file.write_all(bytes).await?;
-            file.write_all(b"\n").await?; // Newline for each JSON log entry
-
-            line_buf.clear();
         }
 
-        Ok(())
+        let file = self.file.as_mut().context(Self::ERR_UNINITIALIZED)?;
+        file.write_all(bytes).await?;
+        file.write_all(b"\n").await?; // Newline for each JSON log entry
+
+        // Flush the buffered writer to ensure the log entry is written to the file
+        file.flush().await.context("Failed to flush log entry")?;
+
+        line_buf.clear();
     }
+
+    Ok(())
+}
+
 
     pub async fn reopen(&mut self) -> Result<()> {
         debug!("Reopen JSON log {}", self.path().display());
@@ -93,7 +97,7 @@ impl JsonLogger {
             .await?;
         self.init().await
     }
-
+    #[allow(dead_code)]
     pub async fn flush(&mut self) -> Result<()> {
         self.file
             .as_mut()
@@ -179,7 +183,7 @@ mod tests {
 
         // Check if the file contains the logged message
         assert!(contents.contains("Test log message after reopen"));
-        assert!(!contents.contains("Test log message before reopen"));
+         assert!(!contents.contains("Test log message before reopen"));
     }
 }
 
