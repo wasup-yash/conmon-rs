@@ -77,8 +77,8 @@ impl ContainerLog {
             self.drivers
                 .iter_mut()
                 .map(|x| match x {
-                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.reopen(),
-                    LogDriver::Json(ref mut json_logger) => json_logger.reopen(),
+                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.reopen().boxed(),
+                    LogDriver::Json(ref mut json_logger) => json_logger.reopen().boxed(),
                 })
                 .collect::<Vec<_>>(),
         )

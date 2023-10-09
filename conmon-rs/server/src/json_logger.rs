@@ -47,7 +47,7 @@ impl JsonLogger {
 
     pub async fn write<T>(&mut self, pipe: Pipe, bytes: T) -> Result<()>
 where
-    T: AsyncBufRead + Unpin,
+    T: AsyncBufRead + Unpin,    
 {
     let mut reader = BufReader::new(bytes);
     let mut line_buf = Vec::new();
@@ -78,8 +78,8 @@ where
         file.write_all(b"\n").await?; // Newline for each JSON log entry
 
         // Flush the buffered writer to ensure the log entry is written to the file
-        file.flush().await.context("Failed to flush log entry")?;
-
+        //file.flush().await.context("Failed to flush log entry")?;
+        self.flush().await?;
         line_buf.clear();
     }
 
@@ -97,7 +97,7 @@ where
             .await?;
         self.init().await
     }
-    #[allow(dead_code)]
+    
     pub async fn flush(&mut self) -> Result<()> {
         self.file
             .as_mut()
@@ -183,7 +183,7 @@ mod tests {
 
         // Check if the file contains the logged message
         assert!(contents.contains("Test log message after reopen"));
-         assert!(!contents.contains("Test log message before reopen"));
+        assert!(!contents.contains("Test log message before reopen"));
     }
 }
 
