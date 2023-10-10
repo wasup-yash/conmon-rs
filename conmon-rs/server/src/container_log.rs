@@ -2,7 +2,7 @@ use crate::{container_io::Pipe, cri_logger::CriLogger, json_logger::JsonLogger};
 use anyhow::Result;
 use capnp::struct_list::Reader;
 use conmon_common::conmon_capnp::conmon::log_driver::{Owned, Type};
-use futures::{FutureExt, future::join_all};
+use futures::{future::join_all, FutureExt};
 use std::sync::Arc;
 use tokio::{io::AsyncBufRead, sync::RwLock};
 
@@ -20,7 +20,7 @@ enum LogDriver {
 }
 
 impl ContainerLog {
-     /// Create a new default SharedContainerLog.
+    /// Create a new default SharedContainerLog.
     pub fn new() -> SharedContainerLog {
         Arc::new(RwLock::new(Self::default()))
     }
@@ -40,16 +40,14 @@ impl ContainerLog {
                             },
                         )?))
                     }
-                    Type::Json => {
-                        Ok(LogDriver::Json(JsonLogger::new(
-                            x.get_path()?,
-                            if x.get_max_size() > 0 {
-                                Some(x.get_max_size() as usize)
-                            } else {
-                                None
-                            },
-                        )?))
-                    }
+                    Type::Json => Ok(LogDriver::Json(JsonLogger::new(
+                        x.get_path()?,
+                        if x.get_max_size() > 0 {
+                            Some(x.get_max_size() as usize)
+                        } else {
+                            None
+                        },
+                    )?)),
                 }
             })
             .collect::<Result<Vec<_>>>()?;
@@ -61,7 +59,9 @@ impl ContainerLog {
             self.drivers
                 .iter_mut()
                 .map(|x| match x {
-                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.init().boxed(),
+                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => {
+                        cri_logger.init().boxed()
+                    }
                     LogDriver::Json(ref mut json_logger) => json_logger.init().boxed(),
                 })
                 .collect::<Vec<_>>(),
@@ -71,13 +71,15 @@ impl ContainerLog {
         .collect::<Result<Vec<_>>>()?;
         Ok(())
     }
-      /// Reopen the container logs.
+    /// Reopen the container logs.
     pub async fn reopen(&mut self) -> Result<()> {
         join_all(
             self.drivers
                 .iter_mut()
                 .map(|x| match x {
-                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => cri_logger.reopen().boxed(),
+                    LogDriver::ContainerRuntimeInterface(ref mut cri_logger) => {
+                        cri_logger.reopen().boxed()
+                    }
                     LogDriver::Json(ref mut json_logger) => json_logger.reopen().boxed(),
                 })
                 .collect::<Vec<_>>(),
@@ -89,26 +91,34 @@ impl ContainerLog {
     }
 
     pub async fn write<T>(&mut self, pipe: Pipe, bytes: T) -> Result<()>
-where
-    T: AsyncBufRead + Unpin + Clone,
-{
-    let futures = self.drivers.iter_mut().map(|x| {
-        async fn box_future<'a, T: AsyncBufRead + Unpin + Clone>(
-            logger: &mut LogDriver,
-            pipe: Pipe,
-            bytes: T,
-        ) -> Result<()> {
-            match logger {
-                LogDriver::ContainerRuntimeInterface(cri_logger) => cri_logger.write(pipe, bytes).await,
-                LogDriver::Json(json_logger) => json_logger.write(pipe, bytes).await,
-            }
-        }
+    where
+        T: AsyncBufRead + Unpin + Clone,
+    {
+        let futures = self
+            .drivers
+            .iter_mut()
+            .map(|x| {
+                async fn box_future<'a, T: AsyncBufRead + Unpin + Clone>(
+                    logger: &mut LogDriver,
+                    pipe: Pipe,
+                    bytes: T,
+                ) -> Result<()> {
+                    match logger {
+                        LogDriver::ContainerRuntimeInterface(cri_logger) => {
+                            cri_logger.write(pipe, bytes).await
+                        }
+                        LogDriver::Json(json_logger) => json_logger.write(pipe, bytes).await,
+                    }
+                }
 
-        box_future(x, pipe, bytes.clone())
-    }).collect::<Vec<_>>();
+                box_future(x, pipe, bytes.clone())
+            })
+            .collect::<Vec<_>>();
 
-    join_all(futures).await.into_iter().collect::<Result<Vec<_>>>()?;
-    Ok(())
+        join_all(futures)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
+        Ok(())
+    }
 }
-}
-

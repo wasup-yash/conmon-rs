@@ -18,6 +18,7 @@ mod cri_logger;
 mod fd_socket;
 mod init;
 mod journal;
+mod json_logger;
 mod listener;
 mod oom_watcher;
 mod pause;
@@ -27,5 +28,3 @@ mod streams;
 mod telemetry;
 mod terminal;
 mod version;
-mod json_logger;
-

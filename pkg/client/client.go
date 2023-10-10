@@ -685,6 +685,7 @@ const (
 	// LogDriverTypeContainerRuntimeInterface is the Kubernetes CRI logger
 	// type.
 	LogDriverTypeContainerRuntimeInterface LogDriverType = iota
+	LogDriverTypeJsonLogger LogDriverType = iota
 )
 
 // CreateContainerResponse is the response of the CreateContainer method.
