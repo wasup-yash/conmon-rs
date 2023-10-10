@@ -75,7 +75,7 @@ impl JsonLogger {
 
             let file = self.file.as_mut().context(Self::ERR_UNINITIALIZED)?;
             file.write_all(bytes).await?;
-            file.write_all(b"\n").await?; 
+            file.write_all(b"\n").await?;
             self.flush().await?;
             line_buf.clear();
         }
