@@ -75,10 +75,7 @@ impl JsonLogger {
 
             let file = self.file.as_mut().context(Self::ERR_UNINITIALIZED)?;
             file.write_all(bytes).await?;
-            file.write_all(b"\n").await?; // Newline for each JSON log entry
-
-            // Flush the buffered writer to ensure the log entry is written to the file
-            //file.flush().await.context("Failed to flush log entry")?;
+            file.write_all(b"\n").await?; 
             self.flush().await?;
             line_buf.clear();
         }
