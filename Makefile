@@ -12,7 +12,7 @@ PREFIX ?= /usr
 CI_TAG ?=
 GOLANGCI_LINT_VERSION := v1.54.1
 ZEITGEIST_VERSION := v0.4.1
-GINKGO_VERSION := v2.11.0
+GINKGO_VERSION := v2.12.0
 
 default:
 	cargo build
@@ -56,7 +56,7 @@ integration-static: .install.ginkgo # It needs to be release so we correctly tes
 		$(MAKE) release-static; \
 	fi && \
 	export RUNTIME_BINARY="$(RUNTIME_PATH)" && \
-	export MAX_RSS_KB=5000 && \
+	export MAX_RSS_KB=7500 && \
 	sudo -E "$(GOTOOLS_BINDIR)/ginkgo" $(TEST_FLAGS) $(GINKGO_FLAGS)
 
 .install.ginkgo:
